@@ -49,7 +49,7 @@ async def generate_questions(num_questions: int = 15) -> Tuple[List[Question], O
 
     try:
         resp = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system",
                  "content": "You are a helpful assistant that generates increasingly difficult trivia questions in JSON"
