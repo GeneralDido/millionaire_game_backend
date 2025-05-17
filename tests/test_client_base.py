@@ -11,9 +11,9 @@ class TestClientGenerator:
     """Class for generating test clients with ASGI support"""
 
     @staticmethod
-    def get_test_client(app: FastAPI) -> TestClient:
+    def get_test_client(_app: FastAPI) -> TestClient:
         """Get a synchronous TestClient for the provided FastAPI app"""
-        return TestClient(app)
+        return TestClient(_app)
 
 
 @pytest.fixture

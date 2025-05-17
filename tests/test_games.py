@@ -5,10 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from tests.test_models import Game
-from tests.mocks import mock_openai, SAMPLE_QUESTIONS
+from tests.mocks import mock_openai
 
 
-# Modified to work with TestClient and async db_session
 def test_create_game(test_client: TestClient, db_session: AsyncSession, mock_openai):
     """Test creating a new game."""
     # Make request with the test client
@@ -20,15 +19,6 @@ def test_create_game(test_client: TestClient, db_session: AsyncSession, mock_ope
     assert "game_id" in data
     assert "questions" in data
     assert "bonus_question" in data
-
-    # Run this synchronously since we're in a sync test function
-    # but db_session is async
-    game_id = data["game_id"]
-
-    # Since we're in a sync context but need to run async code,
-    # we'll use pytest_asyncio's event_loop fixture implicitly
-    # to run the async code
-    # This is handled by the @pytest.mark.asyncio decorator on the test
 
 
 def test_get_game(test_client: TestClient, mock_openai):

@@ -28,7 +28,7 @@ async def test_submit_score(client: AsyncClient, db_session: AsyncSession, mock_
 
     # Verify score was saved to database
     result = await db_session.execute(
-        select(Score).where(Score.game_id == game_id)
+        select(Score).where(Score.game_id == game_id)  # type: ignore[arg-type]
     )
     score = result.scalars().first()
     assert score is not None
@@ -66,7 +66,7 @@ async def test_submit_score_existing_player(client: AsyncClient, db_session: Asy
 
     # Verify we have two scores but only one player
     result = await db_session.execute(
-        select(func.count()).select_from(Score).filter(Score.game_id == game_id)
+        select(func.count()).select_from(Score).filter(Score.game_id == game_id)  # type: ignore[arg-type]
     )
     score_count = result.scalar()
     assert score_count == 2
