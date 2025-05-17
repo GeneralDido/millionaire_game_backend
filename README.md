@@ -176,7 +176,7 @@ Returns 15 questions + a bonus.
 
 **Response** `200 OK`
 
-```json
+```text
 {
   "game_id": 1,
   "questions": [
@@ -196,7 +196,7 @@ GET /games/{game_id}
 
 **Response** `200 OK` or `404 Not Found`
 
-```json
+```text
 /* same JSON schema as Create Game */
 ```
 
@@ -241,8 +241,8 @@ GET /leaderboard/?limit=10
   {
     "player": "Bob",
     "best": 1500
-  }
-  /* ... */
+  },
+  "..."
 ]
 ```
 
