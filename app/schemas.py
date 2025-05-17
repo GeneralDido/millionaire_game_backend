@@ -10,7 +10,8 @@ class Question(BaseModel):
 
 
 class GameCreate(BaseModel):
-    # body is not needed for basic game-create; extend later for category or mode
+    """(reserved) additional options for game creation (e.g. category, difficulty)"""
+    # no fields yet
     pass
 
 

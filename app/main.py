@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .routers import games, leaderboard, scores
+from app.config import settings
 
 
 @asynccontextmanager
@@ -13,14 +14,9 @@ async def lifespan(_app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, title="Millionaire API")
 
-origins = [
-    "http://localhost:3000",
-    # Add other origins as needed
-]
-
 app.add_middleware(
     CORSMiddleware,  # type: ignore[arg-type]
-    allow_origins=origins,
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

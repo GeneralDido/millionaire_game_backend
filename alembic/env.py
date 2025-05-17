@@ -1,7 +1,6 @@
 import sys
 import os
 from logging.config import fileConfig
-from dotenv import load_dotenv
 
 from sqlalchemy import pool, engine_from_config
 from alembic import context
@@ -16,9 +15,6 @@ sys.path.insert(0, project_root)
 # Now we can safely import from app
 from app.config import settings
 from app.models import Base
-
-# Load environment variables
-load_dotenv(os.path.join(project_root, ".env"))
 
 # Alembic Config and Logging
 config = context.config

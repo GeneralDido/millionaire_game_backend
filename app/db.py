@@ -6,7 +6,8 @@ from .config import settings
 engine = create_async_engine(
     settings.DATABASE_URL,
     future=True,
-    echo=True
+    echo=settings.DB_ECHO,
+
 )
 
 # Use async_sessionmaker for async sessions

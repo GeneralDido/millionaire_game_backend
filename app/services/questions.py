@@ -2,6 +2,8 @@
 import hashlib
 import json
 from typing import List, Tuple, Optional
+
+from fastapi import HTTPException
 from openai import AsyncOpenAI  # Use AsyncOpenAI
 from ..config import settings
 from ..schemas import Question
@@ -45,20 +47,25 @@ async def generate_questions(num_questions: int = 15) -> Tuple[List[Question], O
     Make sure questions cover a variety of topics and knowledge areas.
     """
 
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system",
-             "content": "You are a helpful assistant that generates increasingly difficult trivia questions in JSON "
-                        "format."},
-            {"role": "user", "content": prompt}
-        ],
-        response_format={"type": "json_object"}
-    )
+    try:
+        resp = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system",
+                 "content": "You are a helpful assistant that generates increasingly difficult trivia questions in JSON"
+                            "format."},
+                {"role": "user", "content": prompt}
+            ],
+            response_format={"type": "json_object"}
+        )
+        # Extract the content and parse JSON
+        payload = resp.choices[0].message.content
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        raise HTTPException(503, "OpenAI returned invalid JSON")
+    except Exception as e:
+        raise HTTPException(503, f"Question generation service unavailable: {e}")
 
-    # Extract the content and parse JSON
-    content = response.choices[0].message.content
-    data = json.loads(content)
     questions_data = data.get("questions", [])
     bonus_question_data = data.get("bonus_question")
 

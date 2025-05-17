@@ -53,9 +53,13 @@ async def create_game(
         questions_hash=questions_hash
     )
     db.add(new_game)
+
+    # flush so new_game.id is populated
+    await db.flush()
+    # reloads all columns from the DB
+    await db.refresh(new_game)
+
     try:
-        # Using commit directly which implicitly flushes
-        await db.commit()
         return GameRead(
             game_id=new_game.id,
             questions=questions,
