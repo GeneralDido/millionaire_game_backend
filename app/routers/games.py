@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 from typing import Dict, Any
 
-from ..deps import get_db
+from ..deps import get_db, get_admin_key
 from ..models import Game
 from ..schemas import GameCreate, GameRead, Question
 from ..services.questions import generate_questions
@@ -25,6 +25,7 @@ def _build_game_response(game_id: int, game_data: Dict[str, Any]) -> GameRead:
 @router.post("/", response_model=GameRead)
 async def create_game(
         _: GameCreate = None,
+        _admin_key: str = Depends(get_admin_key),
         db: AsyncSession = Depends(get_db)
 ):
     """Create a new game with 15 questions and a bonus question, or fetch existing game with same questions"""
@@ -87,4 +88,19 @@ async def get_game(game_id: int, db: AsyncSession = Depends(get_db)):
     if not game:
         raise HTTPException(status_code=404, detail="Game not found")
 
+    return _build_game_response(game.id, game.questions_json)
+
+
+@router.get("/list")
+async def list_games(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Game.id, Game.created_at).order_by(Game.created_at))
+    return [{"game_id": gid, "created_at": at} for gid, at in result.all()]
+
+
+@router.get("/random", response_model=GameRead)
+async def random_game(db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Game).order_by(func.random()).limit(1))
+    game = result.scalars().first()
+    if not game:
+        raise HTTPException(404, "No games available")
     return _build_game_response(game.id, game.questions_json)
