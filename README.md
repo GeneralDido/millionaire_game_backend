@@ -1,7 +1,7 @@
 # Millionaire Quiz API
 
-A lightweight FastAPI backend for a quiz-style game inspired by "Who Wants to Be a Millionaire". It generates
-multiple-choice questions (and a bonus question) using the OpenAI API, stores games and scores in PostgreSQL, and
+A lightweight FastAPI backend for a quiz-style game inspired by “Who Wants to Be a Millionaire”. It generates
+multiple‐choice questions (and a bonus question) using the OpenAI API, stores games and scores in PostgreSQL, and
 exposes leaderboard data.
 
 ---
@@ -11,21 +11,9 @@ exposes leaderboard data.
 1. [Features](#features)
 2. [Tech Stack](#tech-stack)
 3. [Getting Started](#getting-started)
-
-    * [Prerequisites](#prerequisites)
-    * [Clone & Install](#clone--install)
-    * [Environment Variables](#environment-variables)
-    * [Database Migrations](#database-migrations)
-    * [Run Locally](#run-locally)
-4. [Docker Compose](#docker-compose)
+4. [Database Migrations](#database-migrations)
 5. [Deployment to Render](#deployment-to-render)
 6. [API Reference](#api-reference)
-
-    * [Health Check](#health-check)
-    * [Create Game](#create-game)
-    * [Get Game](#get-game)
-    * [Submit Score](#submit-score)
-    * [Leaderboard](#leaderboard)
 7. [Data Models & Schemas](#data-models--schemas)
 8. [Testing](#testing)
 9. [Configuration](#configuration)
@@ -35,34 +23,35 @@ exposes leaderboard data.
 
 ## Features
 
-* Generate a new quiz with 15 questions + a bonus question via the OpenAI API
-* Idempotent game creation: repeated calls return the same game for identical question sets
-* Submit scores by player name without full user authentication
-* Global leaderboard showing highest score per player
-* SQLite for local testing, PostgreSQL for production
-* Alembic migrations for schema management
-* Docker Compose for easy local development
+- Generate a new quiz with 15 questions + a bonus question via the OpenAI API
+- Idempotent game creation: repeated calls return the same game for identical question sets
+- **Admin-only** question generation (protected by API key)
+- Submit scores by player name without full user authentication
+- Global leaderboard showing the highest score per player
+- Alembic migrations for schema management
+
+---
 
 ## Tech Stack
 
-* **FastAPI** for building the HTTP API
-* **SQLAlchemy 2.0** (async) for ORM
-* **Alembic** for database migrations
-* **Pydantic v2** for request/response schemas
-* **OpenAI** for question generation
-* **PostgreSQL** (asyncpg) in production
-* **SQLite** (aiosqlite) for tests
-* **pytest** + **pytest-asyncio** for testing
-* **Docker Compose** for local containers
+- **FastAPI** (async)
+- **SQLAlchemy 2.0** (async ORM)
+- **Alembic** for schema migrations
+- **Pydantic v2** for request/response validation
+- **OpenAI** for question generation
+- **PostgreSQL** (asyncpg) in production
+- **SQLite** (aiosqlite) for local testing
+- **pytest** + **pytest-asyncio** for tests
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 
-* Python 3.11+
-* Git
-* [Poetry](https://python-poetry.org/) or `pip` for dependency management
-* Docker & Docker Compose (optional)
+- Python 3.11+
+- Git
+- Poetry or pip
 
 ### Clone & Install
 
@@ -93,15 +82,25 @@ Create a `.env` file in the project root with:
 ```ini
 # .env
 DATABASE_URL = postgresql+asyncpg://user:password@localhost:5432/millionaire
-OPENAI_API_KEY = sk-...
-# Optional:
+OPENAI_API_KEY = sk-…
+ADMIN_API_KEY = your-admin-secret-key
 ALLOWED_ORIGINS = ["http://localhost:3000"]
 DB_ECHO = false
 ```
 
+For tests, override in `.env.test`:
+
+```ini
+DATABASE_URL = sqlite+aiosqlite:///:memory:
+OPENAI_API_KEY = sk-test-key
+ADMIN_API_KEY = sk-test-admin-key
+```
+
 ### Database Migrations
 
-Initialize or upgrade your database schema using Alembic:
+Alembic’s `alembic.ini` leaves `sqlalchemy.url=` blank; we override it in `alembic/env.py` (
+switching `+asyncpg` → `+psycopg2`) so
+both offline and online modes work.
 
 ```bash
 alembic upgrade head
@@ -115,35 +114,21 @@ uvicorn app.main:app --reload
 
 Open your browser at `http://localhost:8000/docs` for the interactive OpenAPI docs.
 
-## Docker Compose
-
-Bring up PostgreSQL + API together with one command:
-
-```bash
-docker-compose up --build -d
-```
-
-* **API** listens on `http://localhost:8000`
-* **Postgres** on port `5432`
-
-Apply migrations inside the API container:
-
-```bash
-docker-compose exec api alembic upgrade head
-```
-
 ## Deployment to Render
 
 1. **Create** a new Web Service on Render, connect your repo.
+
 2. **Build Command**: `pip install -r requirements.txt`
-3. **Pre-Deploy Command**: `alembic upgrade head`
-4. **Start Command**: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
-5. **Environment**:
+3. **Start Command**:
+   ```bash
+   alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+   ```
+4. **Environment**:
 
     * `DATABASE_URL` → copy the **Internal Database URL** from Render Postgres
     * `OPENAI_API_KEY` → your key
     * (optional) `ALLOWED_ORIGINS` → e.g. `["http://localhost:3000","https://quiz-ui.vercel.app"]`
-6. **Health Check Path**: `/health`
+5. **Health Check Path**: `/health`
 
 ---
 
@@ -161,14 +146,16 @@ GET /health
 
 ```json
 {
-  "status": "ok"
+  "status": "ok",
+  "version": "1.0.0"
 }
 ```
 
-### Create Game
+### Generate Game (Admin only)
 
 ```http
 POST /games/
+X-Admin-Key: <ADMIN_API_KEY>
 ```
 
 **Description**: Generates (or retrieves) a game.
@@ -179,13 +166,24 @@ Returns 15 questions + a bonus.
 ```text
 {
   "game_id": 1,
-  "questions": [
-    /* array of Question */
-  ],
-  "bonus_question": {
-    /* Question */
-  }
+  "questions": [ /* Question[] */ ],
+  "bonus_question": { /* Question */ }
 }
+```
+
+### List Games
+
+```http
+GET /games/list
+```
+
+**Response** `200 OK`
+
+```text
+[
+  { "game_id": 1, "created_at": "2025-05-18T12:34:56" },
+  …
+]
 ```
 
 ### Get Game
@@ -197,7 +195,19 @@ GET /games/{game_id}
 **Response** `200 OK` or `404 Not Found`
 
 ```text
-/* same JSON schema as Create Game */
+/* same JSON schema as Generate Game */
+```
+
+### Random Game
+
+```http
+GET /games/random
+```
+
+**Response** `200 OK`
+
+```text
+/* one random GameRead */
 ```
 
 ### Submit Score
@@ -246,6 +256,12 @@ GET /leaderboard/?limit=10
 ]
 ```
 
+### OpenAPI Spec
+
+```bash
+curl http://127.0.0.1:8000/openapi.json -o openapi.json
+```
+
 ## Data Models & Schemas
 
 * **Game** (SQLAlchemy)
@@ -281,29 +297,22 @@ GET /leaderboard/?limit=10
     * `questions: List[Question]`
     * `bonus_question: Optional[Question]`
 
-* **ScoreCreate**
+* **ScoreCreate** (Pydantic)
 
     * `player_name: str`
     * `score: int`
 
-* **LeaderboardEntry**
+* **LeaderboardEntry** (Pydantic)
 
     * `player: str`
     * `best: int`
 
 ## Testing
 
-Run tests locally:
+Use the bundled `run_tests.sh`:
 
 ```bash
-# Load test environment
-cp .env.test .env
-pytest -xvs
-```
-
-Or use the provided script:
-
-```bash
+# loads .env.test automatically
 ./run_tests.sh
 ```
 
@@ -315,9 +324,10 @@ All tests pass against an in-memory SQLite database.
 |-------------------|----------------------------------------------------|-----------------------------|
 | `DATABASE_URL`    | SQLAlchemy database URL (`postgresql+asyncpg://…`) | required                    |
 | `OPENAI_API_KEY`  | OpenAI API key                                     | required                    |
+| `ADMIN_API_KEY`   | Admin-only key for POST /games	                    | required                    |
 | `ALLOWED_ORIGINS` | CORS origins array                                 | `["http://localhost:3000"]` |
 | `DB_ECHO`         | Log all SQL statements (`true`/`false`)            | `false`                     |
 
 ## License
 
-MIT © Your Name
+MIT © Dimitrios Panouris
