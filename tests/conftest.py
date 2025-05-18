@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.main import app
 from app.deps import get_db, get_admin_key
-from tests.test_models import TestBase, Game, Player, Score
+from tests.test_models import BaseTest, Game, Player, Score
 
 # ── Shared in-memory DB engine and sessionmaker ───────────────────────────
 TEST_DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite+aiosqlite:///:memory:")
@@ -56,8 +56,8 @@ async def reset_db_for_tests():
     ensuring each test starts with completely clean tables.
     """
     async with test_engine.begin() as conn:
-        await conn.run_sync(TestBase.metadata.drop_all)
-        await conn.run_sync(TestBase.metadata.create_all)
+        await conn.run_sync(BaseTest.metadata.drop_all)
+        await conn.run_sync(BaseTest.metadata.create_all)
     yield
 
 

@@ -3,10 +3,10 @@ from sqlalchemy import Column, Integer, String, DateTime, func, ForeignKey, JSON
 from sqlalchemy.orm import declarative_base
 
 # Create test-specific Base
-TestBase = declarative_base()
+BaseTest = declarative_base()
 
 
-class Game(TestBase):
+class Game(BaseTest):
     __tablename__ = "games"
     id = Column(Integer, primary_key=True)
     # Use JSON instead of JSONB for SQLite compatibility
@@ -15,13 +15,13 @@ class Game(TestBase):
     created_at = Column(DateTime, server_default=func.now())
 
 
-class Player(TestBase):
+class Player(BaseTest):
     __tablename__ = "players"
     id = Column(Integer, primary_key=True)
     name = Column(String, unique=True, nullable=False)
 
 
-class Score(TestBase):
+class Score(BaseTest):
     __tablename__ = "scores"
     id = Column(Integer, primary_key=True)
     player_id = Column(Integer, ForeignKey("players.id"), nullable=False)
