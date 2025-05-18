@@ -6,12 +6,12 @@ import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
-from httpx._transports.asgi import ASGITransport
+from httpx import ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.main import app
-from app.deps import get_db
+from app.deps import get_db, get_admin_key
 from tests.test_models import TestBase, Game, Player, Score
 
 # ── Shared in-memory DB engine and sessionmaker ───────────────────────────
@@ -37,12 +37,14 @@ async def override_get_db():
         try:
             yield session
             await session.commit()
-        except:
+        except Exception:
             await session.rollback()
             raise
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+app.dependency_overrides[get_admin_key] = lambda: "sk-test-admin-key"
 
 
 # ── Drop and (re)create tables between tests ───────────────────────────
