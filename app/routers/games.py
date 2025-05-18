@@ -78,19 +78,6 @@ async def create_game(
         return _build_game_response(existing.id, existing.questions_json)
 
 
-@router.get("/{game_id}", response_model=GameRead)
-async def get_game(game_id: int, db: AsyncSession = Depends(get_db)):
-    """Get a specific game by ID"""
-    stmt = select(Game).where(Game.id == game_id)
-    result = await db.execute(stmt)
-    game = result.scalars().first()
-
-    if not game:
-        raise HTTPException(status_code=404, detail="Game not found")
-
-    return _build_game_response(game.id, game.questions_json)
-
-
 @router.get("/list")
 async def list_games(db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Game.id, Game.created_at).order_by(Game.created_at))
@@ -103,4 +90,17 @@ async def random_game(db: AsyncSession = Depends(get_db)):
     game = result.scalars().first()
     if not game:
         raise HTTPException(404, "No games available")
+    return _build_game_response(game.id, game.questions_json)
+
+
+@router.get("/{game_id}", response_model=GameRead)
+async def get_game(game_id: int, db: AsyncSession = Depends(get_db)):
+    """Get a specific game by ID"""
+    stmt = select(Game).where(Game.id == game_id)
+    result = await db.execute(stmt)
+    game = result.scalars().first()
+
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
     return _build_game_response(game.id, game.questions_json)
