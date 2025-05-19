@@ -8,7 +8,6 @@ from tests.test_models import Game, Player, Score
 
 async def setup_leaderboard_data(db_session: AsyncSession, hash_suffix=None, name_suffix=None):
     """Helper to set up test data for leaderboard."""
-    # Create a game with a unique hash
     import uuid
 
     unique_hash = f"test_hash_{hash_suffix or uuid.uuid4().hex[:8]}"
@@ -19,7 +18,7 @@ async def setup_leaderboard_data(db_session: AsyncSession, hash_suffix=None, nam
     db_session.add(game)
     await db_session.flush()
 
-    # Create players with unique names using the suffix
+    # Create players
     players = [
         Player(name=f"Player1_{name_suffix}"),
         Player(name=f"Player2_{name_suffix}"),
@@ -46,56 +45,60 @@ async def setup_leaderboard_data(db_session: AsyncSession, hash_suffix=None, nam
 @pytest.mark.asyncio
 async def test_get_leaderboard(client: AsyncClient, db_session: AsyncSession):
     """Test retrieving the leaderboard."""
-    # Setup test data with a unique hash and name suffix
-    name_suffix = "leaderboard_test"
-    _, players, _ = await setup_leaderboard_data(
+    # Setup test data
+    _, players, scores = await setup_leaderboard_data(
         db_session,
         hash_suffix="leaderboard_test",
-        name_suffix=name_suffix
+        name_suffix="leaderboard_test"
     )
 
-    # Get leaderboard
     response = await client.get("/leaderboard/")
     assert response.status_code == 200
-
     data = response.json()
 
-    # Check that we get at least 3 results
+    # Must contain at least 3 entries
     assert len(data) >= 3
 
-    # Verify the data is sorted in descending order by score
-    for i in range(len(data) - 1):
-        assert data[i]["best"] >= data[i + 1]["best"], "Leaderboard should be sorted by score in descending order"
+    # Verify fields and types
+    for entry in data:
+        assert isinstance(entry["player"], str)
+        assert isinstance(entry["best"], int)
+        assert isinstance(entry["game_id"], int)
+        # played_at comes back as ISO string
+        assert isinstance(entry["played_at"], str)
 
-    # Check that our highest scores are present (don't check exact names)
-    # The top score should be at least 2000
+    # Sorted by best score descending
+    for i in range(len(data) - 1):
+        assert data[i]["best"] >= data[i + 1]["best"]
+
+    # Top score at least 2000
     assert data[0]["best"] >= 2000
 
 
 @pytest.mark.asyncio
 async def test_get_leaderboard_limit(client: AsyncClient, db_session: AsyncSession):
     """Test retrieving the leaderboard with a limit."""
-    # Setup test data with a different unique hash and name suffix
-    name_suffix = "limit_test"
-    _, players, _ = await setup_leaderboard_data(
+    # Setup test data
+    _, players, scores = await setup_leaderboard_data(
         db_session,
         hash_suffix="leaderboard_limit_test",
-        name_suffix=name_suffix
+        name_suffix="limit_test"
     )
 
-    # Get leaderboard with limit
     response = await client.get("/leaderboard/?limit=2")
     assert response.status_code == 200
-
     data = response.json()
-    assert len(data) == 2  # Limited to 2
 
-    # Instead of checking exact names (which might be affected by other tests),
-    # just verify the expected number of results and that they're ordered correctly
+    # Respect limit
     assert len(data) == 2
-    assert data[0]["best"] >= data[1]["best"]  # First entry has higher score than second
+    assert data[0]["best"] >= data[1]["best"]
 
-    # Verify that the player names are in the response
-    player_names = [entry["player"] for entry in data]
-    assert any(name.startswith("Player2_") for name in player_names)
-    assert any(name.startswith("Player1_") for name in player_names)
+    # Verify new fields in each entry
+    for entry in data:
+        assert isinstance(entry["game_id"], int)
+        assert isinstance(entry["played_at"], str)
+
+    # Ensure correct players present
+    names = [e["player"] for e in data]
+    assert any(n.startswith("Player1_") for n in names)
+    assert any(n.startswith("Player2_") for n in names)
