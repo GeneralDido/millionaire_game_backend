@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 
 class Question(BaseModel):
@@ -29,3 +30,5 @@ class ScoreCreate(BaseModel):
 class LeaderboardEntry(BaseModel):
     player: str
     best: int
+    game_id: int
+    played_at: Optional[datetime]
