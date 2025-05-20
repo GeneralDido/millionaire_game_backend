@@ -12,7 +12,11 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan, title="Millionaire API")
+app = FastAPI(
+    lifespan=lifespan,
+    title="Millionaire API",
+    redirect_slashes=False,
+)
 
 app.add_middleware(
     CORSMiddleware,  # type: ignore[arg-type]
