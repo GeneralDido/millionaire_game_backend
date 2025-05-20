@@ -6,7 +6,7 @@ from typing import Dict, Any
 
 from ..deps import get_db, get_admin_key
 from ..models import Game
-from ..schemas import GameCreate, GameRead, Question
+from ..schemas import GameCreate, GameRead, Question, ExistsResponse
 from ..services.questions import generate_questions
 
 router = APIRouter()
@@ -104,3 +104,18 @@ async def get_game(game_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
 
     return _build_game_response(game.id, game.questions_json)
+
+
+@router.get(
+    "/{game_id}/exists",
+    response_model=ExistsResponse,
+    summary="Check whether a game exists"
+)
+async def game_exists(
+        game_id: int,
+        db: AsyncSession = Depends(get_db)
+):
+    stmt = select(func.count()).select_from(Game).where(Game.id == game_id)
+    result = await db.execute(stmt)
+    count = result.scalar_one()
+    return ExistsResponse(exists=bool(count))

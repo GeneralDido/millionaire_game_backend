@@ -32,3 +32,7 @@ class LeaderboardEntry(BaseModel):
     best: int
     game_id: int
     played_at: Optional[datetime]
+
+
+class ExistsResponse(BaseModel):
+    exists: bool
