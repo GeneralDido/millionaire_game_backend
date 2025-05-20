@@ -1,10 +1,13 @@
 # app/services/questions.py
 import hashlib
 import json
+import textwrap
 from typing import List, Tuple, Optional
 
 from fastapi import HTTPException
 from openai import AsyncOpenAI  # Use AsyncOpenAI
+from pydantic import ValidationError
+
 from ..config import settings
 from ..schemas import Question
 
@@ -18,67 +21,78 @@ async def generate_questions(num_questions: int = 15) -> Tuple[List[Question], O
     Returns: (regular_questions, bonus_question, hash)
     """
 
-    prompt = f"""
-    Generate {num_questions} trivia questions for a 'Who Wants to Be a Millionaire' style game, plus 1 bonus question.
+    prompt = textwrap.dedent(f"""
+        You are an expert Who Wants to Be a Millionaire question writer.  
+        Generate {num_questions} unique multiple-choice questions PLUS a single bonus question, with realistic 
+        ascending prize tiers.
 
-    IMPORTANT: 1. Regular questions MUST be in INCREASING difficulty, starting with easy questions and ending with 
-    very difficult ones. 2. The bonus question should be of MEDIUM difficulty (around the middle level of the regular 
-    questions).
+        Output exactly one JSON object with keys:
+        - "questions": array of {num_questions}
+        - "bonus_question": object
 
-    Format as a JSON object with a "questions" array for the regular questions and a "bonus_question" object:
-    {{
-        "questions": [
-            {{
-                "q": "Question text here?",
-                "correct": "The correct answer",
-                "wrong": ["Wrong answer 1", "Wrong answer 2", "Wrong answer 3"],
-                "hint": "A helpful hint about the question that gives a clue without revealing the answer directly"
-            }}, 
-            // more questions in increasing difficulty...
-        ],
-        "bonus_question": {{
-            "q": "Bonus question text here?",
-            "correct": "The correct answer",
-            "wrong": ["Wrong answer 1", "Wrong answer 2", "Wrong answer 3"],
-            "hint": "A helpful hint about this bonus question"
-        }}
-    }}
+        Each question must have:
+          • "difficulty": integer 1–15 (monotonic: 1–5 easy, 6–10 medium, 11–15 hard)
+          • "prize": string, the money amount (e.g. "$100", ..., "$1,000,000")
+          • "category": one of [History, Geography, Science, Arts & Literature,
+                                Sports, Pop Culture, Food & Drink,
+                                Nature, Tech & Innovation, World Cultures]
+          • "q": question text (requires ≥1 inference step or mini-puzzle)
+          • "correct": the correct answer
+          • "wrong": array of three plausible but subtly incorrect answers
+          • "hint": a genuine 50/50 clue that’s helpful but doesn’t hand it away
 
-    Make sure questions cover a variety of topics and knowledge areas.
-    """
+        Strict constraints: 1. No “trivia-101” topics: avoid capitals, ‘first president’, standard rivers/mountains, 
+        monarch names, famous paintings/artists. 2. Use scenario, data-interpretation, or multi-step logic questions 
+        whenever possible. 3. No more than two questions per category. 4. Bonus must be difficulty 8–10, prize tier 
+        around the “$16,000–$32,000” level. 5. Wrong answers must be factually plausible within the question’s context.
+
+        Example “hard” format for inspiration: “During WWII, codebreakers at Bletchley Park named one of their 
+        machines after a local fruit. What was it called and what cipher did it tackle?” """)
 
     try:
+        # 1) call the API
         resp = await client.chat.completions.create(
             model="gpt-4o",
+            temperature=0.8,
+            top_p=0.9,
             messages=[
-                {"role": "system",
-                 "content": "You are a helpful assistant that generates increasingly difficult trivia questions in JSON"
-                            "format."},
+                {"role": "system", "content": (
+                    "You are an expert 'Who Wants to Be a Millionaire?' question writer."
+                )},
                 {"role": "user", "content": prompt}
             ],
             response_format={"type": "json_object"}
         )
-        # Extract the content and parse JSON
+        # 2) parse the string payload to a Python dict
         payload = resp.choices[0].message.content
         data = json.loads(payload)
+
+        # 3) convert into Pydantic models (can raise ValidationError)
+        questions = [Question.model_validate(q) for q in data["questions"]]
+        bonus_q = (
+            Question.model_validate(data["bonus_question"])
+            if data.get("bonus_question")
+            else None
+        )
+
+        # 4) build the hash
+        game_data = {
+            "questions": [q.model_dump() for q in questions],
+            "bonus_question": bonus_q.model_dump() if bonus_q else None
+        }
+        questions_hash = hashlib.sha256(
+            json.dumps(game_data, sort_keys=True).encode()
+        ).hexdigest()
+
+        return questions, bonus_q, questions_hash
+
     except json.JSONDecodeError:
-        raise HTTPException(503, "OpenAI returned invalid JSON")
+        raise HTTPException(502, "OpenAI returned invalid JSON")
+    except ValidationError as ve:
+        raise HTTPException(502, f"Malformed question schema: {ve}")
+    except HTTPException:
+        # re-raise our own HTTPExceptions untouched
+        raise
     except Exception as e:
-        raise HTTPException(503, f"Question generation service unavailable: {e}")
-
-    questions_data = data.get("questions", [])
-    bonus_question_data = data.get("bonus_question")
-
-    # Convert to Pydantic models (without difficulty field)
-    questions = [Question.model_validate(q) for q in questions_data]
-    bonus_question = Question.model_validate(bonus_question_data) if bonus_question_data else None
-
-    # Create deterministic hash for replay
-    game_data = {
-        "questions": [q.model_dump() for q in questions],
-        "bonus_question": bonus_question.model_dump() if bonus_question else None
-    }
-
-    questions_hash = hashlib.sha256(json.dumps(game_data, sort_keys=True).encode()).hexdigest()
-
-    return questions, bonus_question, questions_hash
+        # catch *everything* else and turn it into JSON
+        raise HTTPException(503, f"Question generation failed: {e}")
