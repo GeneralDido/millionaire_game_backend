@@ -7,6 +7,8 @@ class Question(BaseModel):
     q: str
     correct: str
     wrong: List[str]
+    difficulty: int
+    category: str
     hint: Optional[str]
 
 
