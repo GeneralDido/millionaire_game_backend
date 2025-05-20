@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, delete
 from sqlalchemy.exc import IntegrityError
 from typing import Dict, Any
 
+from starlette import status
+
 from ..deps import get_db, get_admin_key
-from ..models import Game
+from ..models import Game, Score
 from ..schemas import GameCreate, GameRead, Question, ExistsResponse
 from ..services.questions import generate_questions
 
@@ -76,6 +78,32 @@ async def create_game(
             # Very unlikely, but handle it gracefully
             raise HTTPException(status_code=500, detail="Failed to retrieve game after conflict")
         return _build_game_response(existing.id, existing.questions_json)
+
+
+@router.delete(
+    "/{game_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="(Admin) Delete a game and its questions and scores"
+)
+async def delete_game(
+        game_id: int,
+        _admin_key: str = Depends(get_admin_key),
+        db: AsyncSession = Depends(get_db)
+):
+    # 1) make sure it exists
+    result = await db.execute(select(Game).where(Game.id == game_id))
+    game = result.scalars().first()
+    if not game:
+        raise HTTPException(404, "Game not found")
+
+    # 2) wipe out any scores for that game
+    await db.execute(
+        delete(Score).where(Score.game_id == game_id)
+    )
+
+    # 3) now delete the game row itself
+    await db.delete(game)
+    return
 
 
 @router.get("/list")
