@@ -24,6 +24,13 @@ class GameRead(BaseModel):
     bonus_question: Optional[Question] = None
 
 
+class GameUpdate(BaseModel):
+    """
+    Admin payload for updating an existing game.
+    """
+    prompt: str
+
+
 class ScoreCreate(BaseModel):
     player_name: str
     score: int

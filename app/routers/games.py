@@ -8,7 +8,8 @@ from starlette import status
 
 from ..deps import get_db, get_admin_key
 from ..models import Game, Score
-from ..schemas import GameCreate, GameRead, Question, ExistsResponse
+from ..schemas import GameCreate, GameRead, Question, ExistsResponse, GameUpdate
+from ..services.game_update import update_game_questions
 from ..services.questions import generate_questions
 
 router = APIRouter()
@@ -132,6 +133,41 @@ async def get_game(game_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
 
     return _build_game_response(game.id, game.questions_json)
+
+
+@router.put("/{game_id}", response_model=GameRead, summary="(Admin) Update an existing game via AI prompt")
+async def update_game(
+        game_id: int,
+        payload: GameUpdate,
+        _admin_key: str = Depends(get_admin_key),
+        db: AsyncSession = Depends(get_db)
+):
+    # 1) fetch existing game
+    result = await db.execute(select(Game).where(Game.id == game_id))
+    game: Game = result.scalars().first()
+    if not game:
+        raise HTTPException(status_code=404, detail="Game not found")
+
+    # 2) call AI to update questions
+    existing_json = game.questions_json
+    questions, bonus, new_hash = await update_game_questions(existing_json, payload.prompt)
+
+    # 3) update DB record
+    updated_payload = {
+        "questions": [q.model_dump() for q in questions],
+        "bonus_question": bonus.model_dump() if bonus else None
+    }
+    game.questions_json = updated_payload
+    game.questions_hash = new_hash
+    await db.commit()
+    await db.refresh(game)
+
+    # 4) build response
+    return GameRead(
+        game_id=game.id,
+        questions=questions,
+        bonus_question=bonus
+    )
 
 
 @router.get(
