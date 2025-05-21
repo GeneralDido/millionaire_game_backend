@@ -1,4 +1,4 @@
-# Millionaire Quiz API
+# Peak Puzzler Quiz API
 
 A lightweight FastAPI backend for a quiz-style game inspired by “Who Wants to Be a Millionaire”. It generates
 multiple‐choice questions (and a bonus question) using the OpenAI API, stores games and scores in PostgreSQL, and
@@ -56,8 +56,8 @@ exposes leaderboard data.
 ### Clone & Install
 
 ```bash
-git clone https://github.com/yourname/millionaire-backend.git
-cd millionaire-backend
+git clone https://github.com/GeneralDido/peak-puzzler-quiz-backend.git
+cd peak-puzzler-backend
 ```
 
 **With Poetry**:
@@ -81,7 +81,7 @@ Create a `.env` file in the project root with:
 
 ```ini
 # .env
-DATABASE_URL = postgresql+asyncpg://user:password@localhost:5432/millionaire
+DATABASE_URL = postgresql+asyncpg://user:password@localhost:5432/peak-puzzler
 OPENAI_API_KEY = sk-…
 ADMIN_API_KEY = your-admin-secret-key
 ALLOWED_ORIGINS = ["http://localhost:3000"]
