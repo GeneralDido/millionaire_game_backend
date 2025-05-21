@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = [
         "http://localhost:3000",
         "https://millionaire-quiz-frontend.vercel.app",
-        "https://peak-puzzler-quiz-frontend-git-main-dimitris-panouris-projects.vercel.app/",
+        "https://peak-puzzler-quiz-frontend-git-main-dimitris-panouris-projects.vercel.app",
     ]
     DB_ECHO: bool = False
 
