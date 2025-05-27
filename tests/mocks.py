@@ -11,12 +11,16 @@ SAMPLE_QUESTIONS = [
         q="What is the capital of France?",
         correct="Paris",
         wrong=["London", "Berlin", "Madrid"],
+        difficulty=1,
+        category="Geography",
         hint="This city is known as the City of Light."
     ),
     Question(
         q="Which planet is known as the Red Planet?",
         correct="Mars",
         wrong=["Venus", "Jupiter", "Mercury"],
+        difficulty=2,
+        category="Science",
         hint="It's named after the Roman god of war."
     ),
 ]
@@ -25,6 +29,8 @@ SAMPLE_BONUS_QUESTION = Question(
     q="What is the largest mammal?",
     correct="Blue Whale",
     wrong=["Elephant", "Giraffe", "Hippopotamus"],
+    difficulty=3,
+    category="Biology",
     hint="It lives in the ocean."
 )
 
